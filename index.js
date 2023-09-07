@@ -2,8 +2,13 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const path = require('path');
-
+const readline = require('readline');
 // URL của trang web chứa danh sách các ảnh
+
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
 const axios_instance = axios.create({
   httpAgent: {
@@ -12,8 +17,11 @@ const axios_instance = axios.create({
   },
   headers: {
       'Accept-Encoding': 'gzip',
+      'Cookie': '',
+      'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'
   },
 });
+
 
 axios_instance.defaults.httpAgent.keepAlive = true;
 axios_instance.defaults.httpAgent.maxSockets = Infinity;
@@ -23,6 +31,8 @@ axios_instance.defaults.timeout = 30000;
 const headers = {
   Referer: 'https://nettruyenco.vn/'
 }
+
+//console.log(axios_instance.defaults)
 
 const downloadDirectory = 'manga_data'; // Thay đổi đường dẫn nếu cần
 
@@ -36,7 +46,20 @@ const mangas = [];
 const getData = async () => {
   try {
     for (let i = 1; i <= 5; i++) {
-      const response = await axios_instance.get(`https://nettruyenco.vn/tim-truyen?status=-1&sort=10&page=${i}`);
+      let response
+      try {
+        response = await axios_instance.get(`https://nettruyenco.vn/tim-truyen?status=-1&sort=10&page=${i}`);
+      } catch (error) {
+        let cf_clearance = await new Promise((resolve) => {
+          rl.question('Nhập cookie vào đây: ', (input) => {
+            resolve(input.trim());
+          });
+        });
+
+        axios_instance.defaults.headers['Cookie'] = `cf_clearance=${cf_clearance};`;
+        console.log(axios_instance.defaults.headers.common);
+        response = await axios_instance.get(`https://nettruyenco.vn/tim-truyen?status=-1&sort=10&page=${i}`);
+      }
       if (response.status === 200) {
         const html = response.data;
         const $ = cheerio.load(html);
@@ -64,8 +87,20 @@ const getData = async () => {
 
 const getDetail = async (manga) => {
   try {
-    const { data } = await axios_instance.get(manga.link);
-    const $ = cheerio.load(data);
+    let response
+    try {
+      response = await axios_instance.get(manga.link);
+    } catch (error) {
+      let cf_clearance = await new Promise((resolve) => {
+        rl.question('Nhập cookie vào đây: ', (input) => {
+          resolve(input.trim());
+        });
+      });
+      console.log(cf_clearance);
+      axios_instance.defaults.headers['Cookie'] = `cf_clearance=${cf_clearance};`;
+      response = await axios_instance.get(manga.link);
+    }
+    const $ = cheerio.load(response.data);
 
     manga.describtion = $('.detail-content > p').first().text();
     manga.status = $('.status.row > .col-xs-8').first().text();
@@ -100,10 +135,11 @@ const getResults = async () => {
     if(err) {
         console.error(err); return;
     } else {
-        console.log('created categories json file');
+        console.log('created mangas json file');
         console.log(mangas.length);
     }
   });
+  rl.close();
 };
 
 const extract_image = async (manga) => {
