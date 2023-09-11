@@ -6,7 +6,7 @@ const path = require('path');
 const categories = [];
 
 const getCategories = async () => {
-  const response = await axios.get(`https://nettruyenco.vn/tim-truyen?status=-1&sort=10&page=1`);
+  const response = await axios.get(`https://www.nettruyenus.com/tim-truyen?status=-1&sort=10`);
   $ = await cheerio.load(response.data);
   $('#ctl00_divRight .ModuleContent > ul > li > a').each((_idx, el) => {
     categories.push($(el).text());

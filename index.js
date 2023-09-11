@@ -45,7 +45,7 @@ const mangas = [];
 
 const getData = async () => {
   try {
-    for (let i = 1; i <= 5; i++) {
+    for (let i = 1; i <= 1; i++) {
       let response
       try {
         response = await axios_instance.get(`https://nettruyenco.vn/tim-truyen?status=-1&sort=10&page=${i}`);
@@ -57,7 +57,6 @@ const getData = async () => {
         });
 
         axios_instance.defaults.headers['Cookie'] = `cf_clearance=${cf_clearance};`;
-        console.log(axios_instance.defaults.headers.common);
         response = await axios_instance.get(`https://nettruyenco.vn/tim-truyen?status=-1&sort=10&page=${i}`);
       }
       if (response.status === 200) {
@@ -96,7 +95,6 @@ const getDetail = async (manga) => {
           resolve(input.trim());
         });
       });
-      console.log(cf_clearance);
       axios_instance.defaults.headers['Cookie'] = `cf_clearance=${cf_clearance};`;
       response = await axios_instance.get(manga.link);
     }
@@ -126,19 +124,18 @@ const getDetail = async (manga) => {
 const getResults = async () => {
   await getData();
 
-  //console.log(mangas[0]);
-  // for(i = 0; i < mangas.length; ++i) {
-  //   await extract_image(mangas[i])
-  // }
+  for(i = 0; i < mangas.length; ++i) {
+    await extract_image(mangas[i])
+  }
 
-  fs.writeFile('mangas.json', JSON.stringify(mangas), (err) => {
-    if(err) {
-        console.error(err); return;
-    } else {
-        console.log('created mangas json file');
-        console.log(mangas.length);
-    }
-  });
+  // fs.writeFile('mangas.json', JSON.stringify(mangas), (err) => {
+  //   if(err) {
+  //       console.error(err); return;
+  //   } else {
+  //       console.log('created mangas json file');
+  //       console.log(mangas.length);
+  //   }
+  // });
   rl.close();
 };
 
@@ -163,28 +160,44 @@ const extract_image = async (manga) => {
 
 const downloadImage = async (id, chapter, image, backup_image, manga_folder) => {
   try {
-    let response
-    try {
-      response = await axios_instance.get(image, {
-        responseType: 'arraybuffer',
-        headers: headers, // Sử dụng header "Referer"
-      });
-    } catch (error) {
-      console.log("Link lỗi, dùng link backup ...")
-      response = await axios_instance.get(backup_image, {
-        responseType: 'arraybuffer',
-        headers: headers, // Sử dụng header "Referer"
-      });
-    }
-
     const fileName = `${chapter}_${id}.jpg`; // Đặt tên cho ảnh tải về
     const folder = path.join(manga_folder, chapter)
     if (!fs.existsSync(folder)) {
       fs.mkdirSync(folder);
     }
     const filePath = path.join(folder, fileName);
-    fs.writeFileSync(filePath, Buffer.from(response.data));
-    console.log(`Đã tải xuống và lưu vào ${filePath}`);
+    let response
+    if(!fs.existsSync(filePath)) {
+      try {
+        response = await axios_instance.get(image, {
+          responseType: 'arraybuffer',
+          headers: headers, // Sử dụng header "Referer"
+        });
+        fs.writeFileSync(filePath, Buffer.from(response.data));
+      } catch (error) {
+        try {
+          console.log("Link lỗi, dùng link backup ...")
+          response = await axios_instance.get(backup_image, {
+            responseType: 'arraybuffer',
+            headers: headers, // Sử dụng header "Referer"
+          });
+          fs.writeFileSync(filePath, Buffer.from(response.data));
+        } catch (err) {
+          let cf_clearance = await new Promise((resolve) => {
+            rl.question('Nhập cookie vào đây: ', (input) => {
+              resolve(input.trim());
+            });
+          });
+          axios_instance.defaults.headers['Cookie'] = `cf_clearance=${cf_clearance};`;
+          response = await axios_instance.get(backup_image, {
+            responseType: 'arraybuffer',
+            headers: headers, // Sử dụng header "Referer"
+          });
+          fs.writeFileSync(filePath, Buffer.from(response.data));
+        }
+      }
+      console.log(`Đã tải xuống và lưu vào ${filePath}`);
+    }
   } catch (error) {
     console.error(`Lỗi khi tải xuống ảnh: ${error.message} với đường link ${image}`);
   }
